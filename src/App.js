@@ -59,7 +59,7 @@ async function sendToKobo(payload, config) {
   const formData = new FormData();
   formData.append("xml_submission_file", new Blob([xml], { type: "text/xml" }), "submission.xml");
 
-  const res = await fetch("http://192.168.1.177:3001/kobo/pablosaumann/submission", {
+  const res = await fetch("https://pvu-campo.onrender.com/kobo/pablosaumann/submission", {
     method: "POST",
     headers: { Authorization: `Token ${config.token}` },
     body: formData,
