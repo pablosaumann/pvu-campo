@@ -9,19 +9,16 @@ const ZONAS = [
 ];
 const CLIMA = ["Despejado", "Nublado", "Lluvia leve", "Lluvia fuerte", "Viento", "Niebla"];
 const TIPOS_REGISTRO = [
-  { id: "raton",          emoji: "🐀", label: "Reporte Ratón",       color: "#5D4037", bg: "#EFEBE9" },
-  { id: "murcielago",     emoji: "🦇", label: "Reporte Murciélago",  color: "#4A148C", bg: "#EDE7F6" },
-  { id: "observacion",    emoji: "🌿", label: "Observación de Campo", color: "#2E7D32", bg: "#E8F5E9" },
-  { id: "infraestructura",emoji: "🔧", label: "Infraestructura",      color: "#E65100", bg: "#FFF3E0" },
-  { id: "mision",         emoji: "🪓", label: "Misión de Trabajo",    color: "#1565C0", bg: "#E3F2FD" },
-  { id: "tarea",          emoji: "💡", label: "Tarea / Idea",         color: "#B71C1C", bg: "#FFEBEE" },
+  { id: "raton",       emoji: "🐀", label: "Reporte Ratón",        color: "#5D4037", bg: "#EFEBE9" },
+  { id: "murcielago",  emoji: "🦇", label: "Reporte Murciélago",   color: "#4A148C", bg: "#EDE7F6" },
+  { id: "observacion", emoji: "🌿", label: "Observación de Campo",  color: "#2E7D32", bg: "#E8F5E9" },
+  { id: "mision",      emoji: "🪓", label: "Misión de Trabajo",     color: "#1565C0", bg: "#E3F2FD" },
+  { id: "tarea",       emoji: "💡", label: "Tarea / Compromiso",    color: "#B71C1C", bg: "#FFEBEE" },
 ];
 const TIPOS_TRAMPA = ["Plástica marca 1", "Plástica marca 2", "Metal tradicional", "Bluetooth/automática", "Trampa de pegamento"];
-const TIPOS_MISION = ["Control de exóticas (zarzamora)", "Limpieza de sendero", "Mantención infraestructura", "Trabajo en vivero", "Monitoreo", "Otra"];
-const CAT_OBS    = ["Fauna (animal visible)", "Huella", "Feca", "Nido", "Planta", "Hongo", "Árbol caído o dañado", "Otro"];
-const CAT_INFRA  = ["Árbol caído en camino", "Daño en infraestructura", "Cerca rota", "Señalética dañada", "Camino bloqueado", "Daño en edificación", "Otro"];
-const URGENCIAS  = ["URGENTE (hoy)", "Normal (próximos días)", "Baja (cuando se pueda)"];
-const TIPOS_TAREA = ["Tarea urgente (hacer hoy)", "Tarea pendiente", "Propuesta de mejora", "Idea para el parque", "Recordatorio"];
+const TIPOS_MISION = ["Control de Exóticos", "Mantención de sendero", "Mantención infraestructura", "Monitoreo", "Otra (especificar)"];
+const CAT_OBS = ["Fauna (animal visible)", "Huella", "Feca", "Nido", "Planta", "Hongo", "Árbol caído o dañado", "Otro"];
+const TIPOS_TAREA = ["Nueva Tarea", "Propuesta de mejora", "Compromiso", "Requerimiento de Insumos"];
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 function now() {
@@ -44,6 +41,37 @@ function loadQueue() {
 }
 function saveQueue(q) {
   localStorage.setItem("pvu_kobo_queue", JSON.stringify(q));
+}
+function loadRegistrador() {
+  return localStorage.getItem("pvu_registrador") || "";
+}
+function saveRegistrador(nombre) {
+  localStorage.setItem("pvu_registrador", nombre.trim());
+}
+function loadTrampasDB() {
+  try {
+    const saved = localStorage.getItem("pvu_trampas_db");
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return Array.from({ length: 10 }, (_, i) => ({
+    id: `T-${String(i + 1).padStart(2, "0")}`,
+    tipo: null,
+    fecha_inicio: null,
+    es_default: true,
+  }));
+}
+function saveTrampasDB(list) {
+  localStorage.setItem("pvu_trampas_db", JSON.stringify(list));
+}
+function loadEspeciesDB() {
+  try {
+    const saved = localStorage.getItem("pvu_especies_db");
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return ["Rata Rattus", "Roedor no identificado"];
+}
+function saveEspeciesDB(list) {
+  localStorage.setItem("pvu_especies_db", JSON.stringify(list));
 }
 
 // ─── API ──────────────────────────────────────────────────────────────────────
@@ -201,11 +229,102 @@ function SectionCard({ color, bg, emoji, title, children }) {
   );
 }
 
+// ─── PANTALLA DE BIENVENIDA (primera vez) ────────────────────────────────────
+function OnboardingScreen({ onConfirm }) {
+  const [nombre, setNombre] = useState("");
+  const [modo, setModo] = useState("lista"); // "lista" | "libre"
+  const isValid = nombre.trim().length >= 2;
+
+  return (
+    <div style={{
+      minHeight: "100vh", background: "linear-gradient(160deg, #1B5E20 0%, #2E7D32 50%, #388E3C 100%)",
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+      padding: 24, fontFamily: "'DM Sans', sans-serif",
+    }}>
+      <div style={{ fontSize: 56, marginBottom: 12 }}>🌿</div>
+      <div style={{ fontSize: 20, fontWeight: 800, color: "white", letterSpacing: 0.5, marginBottom: 4, textAlign: "center" }}>
+        PARQUE VALLE LOS ULMOS
+      </div>
+      <div style={{ fontSize: 13, color: "#A5D6A7", marginBottom: 32, textAlign: "center" }}>
+        Sistema de Registro de Campo
+      </div>
+
+      <div style={{
+        background: "white", borderRadius: 20, padding: "28px 24px",
+        width: "100%", maxWidth: 380, boxShadow: "0 8px 40px rgba(0,0,0,0.3)",
+      }}>
+        <div style={{ fontSize: 16, fontWeight: 800, color: "#1B5E20", marginBottom: 6 }}>
+          👋 ¿Quién eres?
+        </div>
+        <div style={{ fontSize: 12, color: "#795548", marginBottom: 20, lineHeight: 1.5 }}>
+          Tu nombre se guardará en este teléfono. No tendrás que ingresarlo de nuevo.
+        </div>
+
+        {/* Selector equipo */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+          {USUARIOS.filter(u => u !== "Otro").map(u => (
+            <button key={u} onClick={() => { setNombre(u); setModo("lista"); }} style={{
+              padding: "9px 16px", borderRadius: 20, border: "1.5px solid",
+              borderColor: nombre === u && modo === "lista" ? "#2E7D32" : "#D7CCC8",
+              background: nombre === u && modo === "lista" ? "#2E7D32" : "white",
+              color: nombre === u && modo === "lista" ? "white" : "#5D4037",
+              fontSize: 14, fontWeight: nombre === u && modo === "lista" ? 700 : 400,
+              cursor: "pointer", transition: "all 0.15s",
+            }}>{u}</button>
+          ))}
+          <button onClick={() => { setNombre(""); setModo("libre"); }} style={{
+            padding: "9px 16px", borderRadius: 20, border: "1.5px solid",
+            borderColor: modo === "libre" ? "#1565C0" : "#D7CCC8",
+            background: modo === "libre" ? "#E3F2FD" : "white",
+            color: modo === "libre" ? "#1565C0" : "#9E9E9E",
+            fontSize: 14, cursor: "pointer", transition: "all 0.15s",
+          }}>+ Otro nombre</button>
+        </div>
+
+        {/* Input libre */}
+        {modo === "libre" && (
+          <div style={{ marginBottom: 16 }}>
+            <input
+              autoFocus
+              value={nombre}
+              onChange={e => setNombre(e.target.value)}
+              placeholder="Escribe tu nombre..."
+              style={{
+                width: "100%", padding: "11px 14px", borderRadius: 10,
+                border: "1.5px solid #1565C0", fontSize: 15,
+                fontFamily: "'DM Sans', sans-serif", outline: "none",
+                background: "#F9F6F2", color: "#212121", boxSizing: "border-box",
+              }}
+            />
+          </div>
+        )}
+
+        <button
+          onClick={() => { if (isValid) { saveRegistrador(nombre); onConfirm(nombre.trim()); } }}
+          disabled={!isValid}
+          style={{
+            width: "100%", padding: "14px", borderRadius: 12,
+            background: isValid ? "linear-gradient(135deg, #1B5E20, #388E3C)" : "#BDBDBD",
+            border: "none", color: "white", fontSize: 15, fontWeight: 800,
+            fontFamily: "'DM Sans', sans-serif",
+            cursor: isValid ? "pointer" : "not-allowed", transition: "all 0.2s",
+            boxShadow: isValid ? "0 4px 14px rgba(27,94,32,0.4)" : "none",
+          }}
+        >
+          {isValid ? `Entrar como ${nombre}` : "Selecciona tu nombre para continuar"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── MODAL DE CONFIGURACIÓN KOBO ─────────────────────────────────────────────
-function SettingsModal({ config, onSave, onClose, pendingCount }) {
+function SettingsModal({ config, onSave, onClose, pendingCount, registrador, onChangeRegistrador }) {
   const [token, setToken]     = useState(config.token || "");
   const [assetUid, setAssetUid] = useState(config.assetUid || "");
   const [saved, setSaved]     = useState(false);
+  const [editandoNombre, setEditandoNombre] = useState(false);
+  const [nuevoNombre, setNuevoNombre]       = useState(registrador);
 
   function handleSave() {
     const cfg = { token: token.trim(), assetUid: assetUid.trim() };
@@ -213,6 +332,14 @@ function SettingsModal({ config, onSave, onClose, pendingCount }) {
     onSave(cfg);
     setSaved(true);
     setTimeout(() => { setSaved(false); onClose(); }, 800);
+  }
+
+  function handleGuardarNombre() {
+    if (nuevoNombre.trim().length >= 2) {
+      saveRegistrador(nuevoNombre.trim());
+      onChangeRegistrador(nuevoNombre.trim());
+      setEditandoNombre(false);
+    }
   }
 
   return (
@@ -232,6 +359,48 @@ function SettingsModal({ config, onSave, onClose, pendingCount }) {
         </div>
         <div style={{ fontSize: 12, color: "#795548", marginBottom: 20, fontFamily: "'DM Sans', sans-serif" }}>
           Los datos se enviarán directamente a tu cuenta cuando presiones Guardar.
+        </div>
+
+        {/* Sección registrador */}
+        <div style={{
+          background: "#F1F8E9", border: "1.5px solid #A5D6A7", borderRadius: 12,
+          padding: "12px 14px", marginBottom: 20,
+        }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#2E7D32", marginBottom: 6, fontFamily: "'DM Sans', sans-serif" }}>
+            👤 Registrador en este teléfono
+          </div>
+          {editandoNombre ? (
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                value={nuevoNombre}
+                onChange={e => setNuevoNombre(e.target.value)}
+                style={{
+                  flex: 1, padding: "8px 10px", borderRadius: 8, border: "1.5px solid #2E7D32",
+                  fontSize: 14, fontFamily: "'DM Sans', sans-serif", outline: "none",
+                }}
+              />
+              <button onClick={handleGuardarNombre} style={{
+                padding: "8px 12px", borderRadius: 8, background: "#2E7D32",
+                border: "none", color: "white", fontSize: 13, fontWeight: 700,
+                fontFamily: "'DM Sans', sans-serif", cursor: "pointer",
+              }}>✓</button>
+              <button onClick={() => { setEditandoNombre(false); setNuevoNombre(registrador); }} style={{
+                padding: "8px 10px", borderRadius: 8, background: "#EFEBE9",
+                border: "none", color: "#5D4037", fontSize: 13,
+                fontFamily: "'DM Sans', sans-serif", cursor: "pointer",
+              }}>✕</button>
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: "#1B5E20", fontFamily: "'DM Sans', sans-serif" }}>
+                {registrador}
+              </span>
+              <button onClick={() => setEditandoNombre(true)} style={{
+                background: "none", border: "none", color: "#1565C0", fontSize: 12,
+                fontFamily: "'DM Sans', sans-serif", cursor: "pointer", textDecoration: "underline",
+              }}>Cambiar</button>
+            </div>
+          )}
         </div>
 
         {/* Instrucciones colapsables */}
@@ -290,57 +459,192 @@ function SettingsModal({ config, onSave, onClose, pendingCount }) {
 }
 
 // ─── SECCIONES ────────────────────────────────────────────────────────────────
+const CEBOS_RATON = ["Maní", "Avena", "Avena con vainilla", "Avena o semilla", "Sin cebo", "Otro"];
+
 function SeccionRaton({ onDataChange }) {
-  const [trampas, setTrampas] = useState([{
-    id: Date.now(), id_trampa: "", tipo: "", estado: "", captura: "",
-    especie: "", cantidad: "", cebo: "", ceboRepuesto: "", notas: "",
-  }]);
+  const [trampasDB, setTrampasDB] = useState(loadTrampasDB);
+  const [especiesDB, setEspeciesDB] = useState(loadEspeciesDB);
+
+  const newEntry = () => ({
+    _key: Date.now() + Math.random(),
+    id_trampa: "", estado: "", captura: "",
+    especie: "", especie_nueva: "",
+    cebo: "", cebo_desc: "", cebo_repuesto: "", notas: "",
+    // mini-form nueva trampa
+    modo_nueva: false, nueva_nombre: "", nueva_tipo: "",
+    nueva_fecha: new Date().toLocaleDateString("es-CL"),
+  });
+
+  const [entries, setEntries] = useState([newEntry()]);
 
   useEffect(() => {
-    onDataChange?.({ tipo_registro: "raton", trampas });
-  }, [trampas]);
+    onDataChange?.({ tipo_registro: "raton", trampas: entries });
+  }, [entries]);
 
-  const update = (i, k, v) => setTrampas(t => t.map((tr, idx) => idx === i ? { ...tr, [k]: v } : tr));
-  const add = () => setTrampas(t => [...t, {
-    id: Date.now(), id_trampa: "", tipo: "", estado: "", captura: "",
-    especie: "", cantidad: "", cebo: "", ceboRepuesto: "", notas: "",
-  }]);
+  const upd = (i, patch) =>
+    setEntries(t => t.map((e, idx) => idx === i ? { ...e, ...patch } : e));
+
+  function confirmarNuevaTrampa(i, e) {
+    if (!e.nueva_nombre.trim()) return;
+    const nueva = {
+      id: e.nueva_nombre.trim(),
+      tipo: e.nueva_tipo || null,
+      fecha_inicio: e.nueva_fecha,
+      es_default: false,
+    };
+    const newDB = [...trampasDB, nueva];
+    setTrampasDB(newDB);
+    saveTrampasDB(newDB);
+    upd(i, { id_trampa: nueva.id, modo_nueva: false, nueva_nombre: "", nueva_tipo: "" });
+  }
+
+  function confirmarNuevaEspecie(i, e) {
+    const nombre = e.especie_nueva.trim();
+    if (!nombre) return;
+    const newDB = especiesDB.includes(nombre) ? especiesDB : [...especiesDB, nombre];
+    setEspeciesDB(newDB);
+    saveEspeciesDB(newDB);
+    upd(i, { especie: nombre, especie_nueva: "" });
+  }
+
+  const selectStyle = {
+    width: "100%", padding: "10px 12px", borderRadius: 10, border: "1.5px solid #D7CCC8",
+    fontSize: 14, fontFamily: "'DM Sans', sans-serif", outline: "none",
+    background: "#FAFAFA", color: "#212121", appearance: "none",
+    backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23795548' stroke-width='1.5' fill='none'/%3E%3C/svg%3E\")",
+    backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center",
+  };
 
   return (
     <SectionCard color="#5D4037" bg="#EFEBE9" emoji="🐀" title="REPORTE RATÓN">
-      {trampas.map((tr, i) => (
-        <div key={tr.id} style={{ background: "white", borderRadius: 10, padding: 14, marginBottom: 12, border: "1px solid #D7CCC8" }}>
+      {entries.map((e, i) => (
+        <div key={e._key} style={{ background: "white", borderRadius: 10, padding: 14, marginBottom: 12, border: "1px solid #D7CCC8" }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: "#5D4037", marginBottom: 12 }}>
-            TRAMPA {i + 1} {trampas.length > 1 && (
+            TRAMPA {i + 1} {entries.length > 1 && (
               <span style={{ cursor: "pointer", color: "#B71C1C", float: "right" }}
-                onClick={() => setTrampas(t => t.filter((_, idx) => idx !== i))}>✕</span>
+                onClick={() => setEntries(t => t.filter((_, idx) => idx !== i))}>✕</span>
             )}
           </div>
-          <Field label="ID de trampa" required><Input value={tr.id_trampa || ""} onChange={v => update(i, "id_trampa", v)} placeholder="Ej: T-01, T-15..." /></Field>
-          <Field label="Tipo de trampa" required><Select value={tr.tipo} onChange={v => update(i, "tipo", v)} options={TIPOS_TRAMPA} /></Field>
-          <Field label="Estado" required><Select value={tr.estado} onChange={v => update(i, "estado", v)} options={["Activa", "Dañada", "Necesita reposición", "Faltante"]} /></Field>
-          <Field label="¿Hubo captura?" required><RadioGroup options={["Sí", "No"]} value={tr.captura} onChange={v => update(i, "captura", v)} /></Field>
-          {tr.captura === "Sí" && <>
-            <Field label="Especie capturada"><Select value={tr.especie} onChange={v => update(i, "especie", v)} options={["Rata común", "Laucha", "Roedor no identificado", "Otra especie"]} /></Field>
-            <Field label="Número de capturas"><Input type="number" value={tr.cantidad} onChange={v => update(i, "cantidad", v)} placeholder="¿Cuántos?" /></Field>
-          </>}
-          <Field label="Tipo de cebo" required><Select value={tr.cebo} onChange={v => update(i, "cebo", v)} options={["Maní", "Chocolate", "Avena", "Pegamento", "Sin cebo", "Otro"]} /></Field>
-          <Field label="¿Se repuso el cebo?" required><RadioGroup options={["Sí", "No"]} value={tr.ceboRepuesto} onChange={v => update(i, "ceboRepuesto", v)} /></Field>
-          <Field label="Foto de la trampa"><PhotoBtn label="Tomar foto" /></Field>
-          <Field label="Observaciones"><TextArea value={tr.notas} onChange={v => update(i, "notas", v)} placeholder="Notas, anomalías..." hasVoice /></Field>
+
+          {/* ── Selector de trampa ── */}
+          <Field label="ID de trampa" required>
+            <select value={e.id_trampa}
+              onChange={ev => {
+                const val = ev.target.value;
+                upd(i, { id_trampa: val, modo_nueva: val === "__nueva__" });
+              }}
+              style={selectStyle}>
+              <option value="">Seleccionar trampa...</option>
+              {trampasDB.map(t => (
+                <option key={t.id} value={t.id}>
+                  {t.id}{t.tipo ? ` — ${t.tipo}` : ""}{!t.es_default && t.fecha_inicio ? ` (desde ${t.fecha_inicio})` : ""}
+                </option>
+              ))}
+              <option value="__nueva__">➕ Nueva trampa</option>
+            </select>
+          </Field>
+
+          {/* ── Mini-form: Nueva trampa ── */}
+          {e.modo_nueva && (
+            <div style={{ background: "#FFF8F6", border: "1.5px dashed #BCAAA4", borderRadius: 10, padding: 12, marginBottom: 12 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#5D4037", marginBottom: 10 }}>
+                📋 Registrar nueva trampa
+              </div>
+              <Field label="Nombre / código" required>
+                <Input value={e.nueva_nombre} onChange={v => upd(i, { nueva_nombre: v })} placeholder="Ej: T-11, T-casona..." />
+              </Field>
+              <Field label="Tipo de trampa">
+                <Select value={e.nueva_tipo} onChange={v => upd(i, { nueva_tipo: v })} options={TIPOS_TRAMPA} />
+              </Field>
+              <Field label="Foto de la trampa">
+                <PhotoBtn label="Foto inicial de la trampa" />
+              </Field>
+              <div style={{ fontSize: 11, color: "#795548", marginBottom: 10 }}>
+                📅 Fecha de inicio: <b>{e.nueva_fecha}</b>
+              </div>
+              <button onClick={() => confirmarNuevaTrampa(i, e)}
+                disabled={!e.nueva_nombre.trim()}
+                style={{
+                  width: "100%", padding: 10, borderRadius: 8,
+                  background: e.nueva_nombre.trim() ? "#5D4037" : "#BDBDBD",
+                  border: "none", color: "white", fontSize: 13, fontWeight: 700,
+                  fontFamily: "'DM Sans', sans-serif",
+                  cursor: e.nueva_nombre.trim() ? "pointer" : "not-allowed",
+                }}>
+                ✓ Agregar {e.nueva_nombre.trim() ? `"${e.nueva_nombre.trim()}"` : "trampa"}
+              </button>
+            </div>
+          )}
+
+          {/* ── Resto del formulario (solo con trampa seleccionada) ── */}
+          {e.id_trampa && e.id_trampa !== "__nueva__" && (
+            <>
+              <Field label="Estado" required>
+                <Select value={e.estado} onChange={v => upd(i, { estado: v })}
+                  options={["Activa", "Dañada", "Necesita reposición", "Faltante"]} />
+              </Field>
+              <Field label="¿Hubo captura?" required>
+                <RadioGroup options={["Sí", "No"]} value={e.captura} onChange={v => upd(i, { captura: v })} />
+              </Field>
+
+              {e.captura === "Sí" && (
+                <Field label="Especie capturada">
+                  <select value={e.especie}
+                    onChange={ev => upd(i, { especie: ev.target.value, especie_nueva: "" })}
+                    style={selectStyle}>
+                    <option value="">Seleccionar especie...</option>
+                    {especiesDB.map(sp => <option key={sp} value={sp}>{sp}</option>)}
+                    <option value="__nueva_especie__">+ Registrar nueva especie</option>
+                  </select>
+                  {e.especie === "__nueva_especie__" && (
+                    <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
+                      <input value={e.especie_nueva}
+                        onChange={ev => upd(i, { especie_nueva: ev.target.value })}
+                        placeholder="Nombre de la especie..."
+                        style={{
+                          flex: 1, padding: "9px 12px", borderRadius: 8,
+                          border: "1.5px solid #2E7D32", fontSize: 14,
+                          fontFamily: "'DM Sans', sans-serif", outline: "none",
+                        }} />
+                      <button onClick={() => confirmarNuevaEspecie(i, e)}
+                        disabled={!e.especie_nueva.trim()}
+                        style={{
+                          padding: "9px 14px", borderRadius: 8,
+                          background: e.especie_nueva.trim() ? "#2E7D32" : "#BDBDBD",
+                          border: "none", color: "white", fontSize: 13, fontWeight: 700,
+                          fontFamily: "'DM Sans', sans-serif",
+                          cursor: e.especie_nueva.trim() ? "pointer" : "not-allowed",
+                        }}>✓</button>
+                    </div>
+                  )}
+                </Field>
+              )}
+
+              <Field label="Tipo de cebo" required>
+                <Select value={e.cebo} onChange={v => upd(i, { cebo: v })} options={CEBOS_RATON} />
+              </Field>
+              {e.cebo === "Otro" && (
+                <Field label="Describir el cebo" required>
+                  <Input value={e.cebo_desc} onChange={v => upd(i, { cebo_desc: v })} placeholder="¿Qué cebo se usó?" />
+                </Field>
+              )}
+              <Field label="¿Se repuso el cebo?" required>
+                <RadioGroup options={["Sí", "No"]} value={e.cebo_repuesto} onChange={v => upd(i, { cebo_repuesto: v })} />
+              </Field>
+              <Field label="Foto de la trampa"><PhotoBtn label="Tomar foto" /></Field>
+              <Field label="Observaciones">
+                <TextArea value={e.notas} onChange={v => upd(i, { notas: v })} placeholder="Notas, anomalías..." hasVoice />
+              </Field>
+            </>
+          )}
         </div>
       ))}
-      <button onClick={add} style={{
-        width: "100%", padding: 12, borderRadius: 10, border: "2px dashed #A1887F",
-        background: "white", color: "#5D4037", fontSize: 13, fontFamily: "'DM Sans', sans-serif",
-        cursor: "pointer", fontWeight: 600,
-      }}>+ Agregar otra trampa</button>
     </SectionCard>
   );
 }
 
 function SeccionMurcielago({ onDataChange }) {
-  const [f, setF] = useState({ zona: "", metodo: "", volumen: "", individuos: "", observados: "", estado: "", notas: "" });
+  const [f, setF] = useState({ volumen: "", individuos: "", observados: "", notas: "" });
   const s = (k, v) => setF(p => ({ ...p, [k]: v }));
   useEffect(() => { onDataChange?.({ tipo_registro: "murcielago", ...f }); }, [f]);
   return (
@@ -348,23 +652,20 @@ function SeccionMurcielago({ onDataChange }) {
       <div style={{ fontSize: 11, color: "#6A1B9A", marginBottom: 14, padding: "8px 12px", background: "#F3E5F5", borderRadius: 8 }}>
         📅 Registro mensual — Ático de la Casona Holzapfel
       </div>
-      <Field label="Zona del ático revisada" required><Select value={f.zona} onChange={v => s("zona", v)} options={["Ático completo", "Sector norte", "Sector sur", "Sector central", "Otro"]} /></Field>
-      <Field label="Método de medición" required><Select value={f.metodo} onChange={v => s("metodo", v)} options={["Recipiente medidor (litros)", "Área estimada (m²)", "Peso aproximado (kg)", "Estimación visual"]} /></Field>
-      <Field label="Volumen / cantidad registrada" required hint={f.metodo ? `Ingresar en ${f.metodo.includes("litros") ? "litros" : f.metodo.includes("m²") ? "m²" : f.metodo.includes("kg") ? "kg" : "estimación"}` : "Seleccionar método primero"}>
+      <Field label="Volumen / cantidad registrada" required hint="Ingresar estimación">
         <Input value={f.volumen} onChange={v => s("volumen", v)} placeholder="Ej: 3.5" type="number" />
       </Field>
       <Field label="Foto general del ático" required><PhotoBtn label="Foto general" /></Field>
       <Field label="Foto de detalle de fecas"><PhotoBtn label="Foto de detalle" /></Field>
       <Field label="¿Se observaron murciélagos?"><RadioGroup options={["Sí", "No", "No revisado"]} value={f.observados} onChange={v => s("observados", v)} /></Field>
       {f.observados === "Sí" && <Field label="Número aproximado de individuos"><Input type="number" value={f.individuos} onChange={v => s("individuos", v)} placeholder="Estimación" /></Field>}
-      <Field label="Estado general del ático" required><Select value={f.estado} onChange={v => s("estado", v)} options={["Sin novedad", "Acumulación menor", "Acumulación moderada", "Acumulación alta", "Requiere limpieza urgente"]} /></Field>
       <Field label="Observaciones / notas"><TextArea value={f.notas} onChange={v => s("notas", v)} placeholder="Cambios respecto al mes anterior, anomalías..." hasVoice /></Field>
     </SectionCard>
   );
 }
 
 function SeccionObservacion({ onDataChange }) {
-  const [f, setF] = useState({ cat: "", especie: "", cantidad: "", confianza: "", inaturalist: "", notas: "" });
+  const [f, setF] = useState({ cat: "", especie: "", cantidad: "", notas: "" });
   const s = (k, v) => setF(p => ({ ...p, [k]: v }));
   useEffect(() => { onDataChange?.({ tipo_registro: "observacion", ...f }); }, [f]);
   return (
@@ -376,56 +677,12 @@ function SeccionObservacion({ onDataChange }) {
       {(f.cat === "Huella" || f.cat === "Feca") && <Field label="Foto de escala" hint="Agrega un objeto de referencia (moneda, lápiz, mano)"><PhotoBtn label="Foto con escala" /></Field>}
       <Field label="Foto adicional"><PhotoBtn label="Foto adicional (opcional)" /></Field>
       <Field label="Descripción / notas"><TextArea value={f.notas} onChange={v => s("notas", v)} placeholder="Comportamiento, dirección, contexto del hallazgo..." hasVoice /></Field>
-      <Field label="Nivel de confianza en identificación"><Select value={f.confianza} onChange={v => s("confianza", v)} options={["Alta (estoy seguro/a)", "Media (probable)", "Baja (no estoy seguro/a)"]} /></Field>
-      <Field label="¿Subir a iNaturalist?"><RadioGroup options={["Sí", "No", "Ya subido"]} value={f.inaturalist} onChange={v => s("inaturalist", v)} /></Field>
-    </SectionCard>
-  );
-}
-
-function SeccionInfra({ onDataChange }) {
-  const [f, setF] = useState({ tipo: "", urgencia: "", puede: "", notificar: [], notas: "" });
-  const s = (k, v) => setF(p => ({ ...p, [k]: v }));
-  const toggleNot = n => setF(p => ({ ...p, notificar: p.notificar.includes(n) ? p.notificar.filter(x => x !== n) : [...p.notificar, n] }));
-  useEffect(() => { onDataChange?.({ tipo_registro: "infraestructura", ...f, notificar: f.notificar.join(", ") }); }, [f]);
-  return (
-    <SectionCard color="#E65100" bg="#FFF3E0" emoji="🔧" title="INFRAESTRUCTURA">
-      <Field label="Tipo de problema" required><Select value={f.tipo} onChange={v => s("tipo", v)} options={CAT_INFRA} /></Field>
-      <Field label="Urgencia" required>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {URGENCIAS.map(u => (
-            <button key={u} onClick={() => s("urgencia", u)} style={{
-              padding: "10px 14px", borderRadius: 10, border: "1.5px solid",
-              borderColor: f.urgencia === u ? (u.startsWith("URGENTE") ? "#B71C1C" : u.startsWith("Normal") ? "#E65100" : "#2E7D32") : "#D7CCC8",
-              background: f.urgencia === u ? (u.startsWith("URGENTE") ? "#FFEBEE" : u.startsWith("Normal") ? "#FFF3E0" : "#E8F5E9") : "white",
-              color: f.urgencia === u ? (u.startsWith("URGENTE") ? "#B71C1C" : u.startsWith("Normal") ? "#E65100" : "#2E7D32") : "#5D4037",
-              fontSize: 13, fontFamily: "'DM Sans', sans-serif", cursor: "pointer",
-              fontWeight: f.urgencia === u ? 700 : 400, textAlign: "left",
-            }}>{u}</button>
-          ))}
-        </div>
-      </Field>
-      <Field label="Foto del problema" required><PhotoBtn label="Foto del daño o problema" /></Field>
-      <Field label="Descripción del problema" required><TextArea value={f.notas} onChange={v => s("notas", v)} placeholder="Qué pasó, dónde exactamente, qué se necesita..." hasVoice /></Field>
-      <Field label="¿Puede solucionarlo solo/a?"><RadioGroup options={["Sí", "No", "Parcialmente"]} value={f.puede} onChange={v => s("puede", v)} /></Field>
-      <Field label="¿A quién notificar?" required>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {["Bárbara", "Pablo", "Joaquín (ranger)", "Todos"].map(n => (
-            <button key={n} onClick={() => toggleNot(n)} style={{
-              padding: "8px 14px", borderRadius: 20, border: "1.5px solid",
-              borderColor: f.notificar.includes(n) ? "#E65100" : "#D7CCC8",
-              background: f.notificar.includes(n) ? "#E65100" : "white",
-              color: f.notificar.includes(n) ? "white" : "#5D4037",
-              fontSize: 13, fontFamily: "'DM Sans', sans-serif", cursor: "pointer",
-            }}>{n}</button>
-          ))}
-        </div>
-      </Field>
     </SectionCard>
   );
 }
 
 function SeccionMision({ onDataChange }) {
-  const [f, setF] = useState({ tipo: "", desc: "", horaInicio: "", horaFin: "", cantidad: "", unidad: "", resultado: "", dificultad: "", notas: "" });
+  const [f, setF] = useState({ tipo: "", tipo_desc: "", desc: "", horaInicio: "", horaFin: "", cantidad: "", unidad: "", resultado: "", dificultad: "", notas: "" });
   const s = (k, v) => setF(p => ({ ...p, [k]: v }));
   const [iniciada, setIniciada] = useState(false);
   const [finalizada, setFinalizada] = useState(false);
@@ -433,7 +690,12 @@ function SeccionMision({ onDataChange }) {
   return (
     <SectionCard color="#1565C0" bg="#E3F2FD" emoji="🪓" title="MISIÓN DE TRABAJO">
       <Field label="Tipo de misión" required><Select value={f.tipo} onChange={v => s("tipo", v)} options={TIPOS_MISION} /></Field>
-      <Field label="Descripción de la misión" required><TextArea rows={2} value={f.desc} onChange={v => s("desc", v)} placeholder='Ej: "Control de zarzamora en zona A, sector sur del sendero"' hasVoice /></Field>
+      {f.tipo === "Otra (especificar)" && (
+        <Field label="Especificar tipo de misión" required>
+          <Input value={f.tipo_desc} onChange={v => s("tipo_desc", v)} placeholder="Describe el tipo de misión..." />
+        </Field>
+      )}
+      <Field label="Descripción de la misión" required><TextArea rows={2} value={f.desc} onChange={v => s("desc", v)} placeholder='Ej: "Control de exóticos en zona A, sector sur del sendero"' hasVoice /></Field>
       {!iniciada ? (
         <button onClick={() => { setIniciada(true); s("horaInicio", new Date().toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })); }} style={{
           width: "100%", padding: 14, borderRadius: 10, background: "#1565C0",
@@ -479,16 +741,25 @@ function SeccionMision({ onDataChange }) {
 }
 
 function SeccionTarea({ onDataChange }) {
-  const [f, setF] = useState({ tipo: "", desc: "", urgencia: "", dirigido: [], recursos: "" });
+  const [f, setF] = useState({ tipo: "", desc: "", urgencia: "", fecha_compromiso: "", dirigido: [], recursos: "" });
   const s = (k, v) => setF(p => ({ ...p, [k]: v }));
   const toggleD = n => setF(p => ({ ...p, dirigido: p.dirigido.includes(n) ? p.dirigido.filter(x => x !== n) : [...p.dirigido, n] }));
   useEffect(() => { onDataChange?.({ tipo_registro: "tarea", ...f, dirigido: f.dirigido.join(", ") }); }, [f]);
   return (
-    <SectionCard color="#B71C1C" bg="#FFEBEE" emoji="💡" title="TAREA / IDEA">
-      <Field label="Tipo de anotación" required><Select value={f.tipo} onChange={v => s("tipo", v)} options={TIPOS_TAREA} /></Field>
-      <Field label="Descripción" required><TextArea value={f.desc} onChange={v => s("desc", v)} placeholder="¿Qué hay que hacer, o qué idea propones?" hasVoice /></Field>
+    <SectionCard color="#B71C1C" bg="#FFEBEE" emoji="💡" title="TAREA / COMPROMISO">
+      <Field label="Tipo" required><Select value={f.tipo} onChange={v => s("tipo", v)} options={TIPOS_TAREA} /></Field>
+      {f.tipo === "Compromiso" && (
+        <Field label="Fecha comprometida" required>
+          <input type="date" value={f.fecha_compromiso} onChange={e => s("fecha_compromiso", e.target.value)} style={{
+            width: "100%", padding: "10px 12px", borderRadius: 10, border: "1.5px solid #D7CCC8",
+            fontSize: 14, fontFamily: "'DM Sans', sans-serif", outline: "none",
+            background: "#FAFAFA", color: "#212121", boxSizing: "border-box",
+          }} />
+        </Field>
+      )}
+      <Field label="Descripción" required><TextArea value={f.desc} onChange={v => s("desc", v)} placeholder="¿Qué hay que hacer, o qué se compromete?" hasVoice /></Field>
       <Field label="Foto de referencia"><PhotoBtn label="Foto de referencia (opcional)" /></Field>
-      <Field label="Urgencia" required><Select value={f.urgencia} onChange={v => s("urgencia", v)} options={["Hoy", "Esta semana", "Este mes", "Sin plazo definido"]} /></Field>
+      <Field label="Urgencia"><Select value={f.urgencia} onChange={v => s("urgencia", v)} options={["Hoy", "Esta semana", "Este mes", "Sin plazo definido"]} /></Field>
       <Field label="¿A quién va dirigido?">
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {["Bárbara", "Roberto", "Joaquín", "Catalina", "Pablo", "Todo el equipo"].map(n => (
@@ -510,9 +781,7 @@ function SeccionTarea({ onDataChange }) {
 // ─── APP PRINCIPAL ────────────────────────────────────────────────────────────
 export default function App() {
   const { fecha, hora, iso } = now();
-  const [usuario, setUsuario]   = useState("");
-  const [zona, setZona]         = useState("");
-  const [clima, setClima]       = useState("");
+  const [registrador, setRegistrador] = useState(loadRegistrador);
   const [tipoReg, setTipoReg]   = useState("");
   const [gps, setGps]           = useState(null);
 
@@ -565,9 +834,7 @@ export default function App() {
       a2_fecha: fecha,
       a3_hora_inicio: hora,
       a4_gps: gps ? `${gps.lat} ${gps.lng}` : "",
-      a5_zona: zona,
-      a6_condicion_climatica: clima,
-      registrador: usuario,
+      registrador: registrador,
       ...sectionData,
     };
 
@@ -598,8 +865,13 @@ export default function App() {
   }
 
   const tipoActual = TIPOS_REGISTRO.find(t => t.id === tipoReg);
-  const isReady    = !!(usuario && zona && tipoReg);
+  const isReady    = !!tipoReg;
   const isConnected = !!(koboConfig.token && koboConfig.assetUid);
+
+  // ── PANTALLA ONBOARDING (primera vez) ────────────────────────────────────
+  if (!registrador) {
+    return <OnboardingScreen onConfirm={nombre => setRegistrador(nombre)} />;
+  }
 
   // ── PANTALLA RESULTADO ────────────────────────────────────────────────────
   if (submitStatus === "success" || submitStatus === "offline") {
@@ -616,7 +888,7 @@ export default function App() {
             : "El registro fue enviado directamente a tu cuenta KoboToolbox."}
         </div>
         <div style={{ fontSize: 12, color: "#795548", marginBottom: 32, textAlign: "center" }}>
-          {tipoActual?.emoji} {tipoActual?.label} · {usuario} · {fecha} {hora}
+          {tipoActual?.emoji} {tipoActual?.label} · {registrador} · {fecha} {hora}
         </div>
         {pendingCount > 0 && (
           <div style={{ background: "#FFF3E0", border: "1.5px solid #FF9800", borderRadius: 10, padding: "10px 16px", marginBottom: 20, fontSize: 12, color: "#E65100" }}>
@@ -666,7 +938,7 @@ export default function App() {
             <span style={{ fontSize: 24 }}>🌿</span>
             <div>
               <div style={{ fontSize: 16, fontWeight: 800, color: "white", letterSpacing: 0.5 }}>PARQUE VALLE LOS ULMOS</div>
-              <div style={{ fontSize: 11, color: "#A5D6A7" }}>Sistema de Registro de Campo</div>
+              <div style={{ fontSize: 11, color: "#A5D6A7" }}>Sistema de Registro de Campo · 👤 {registrador}</div>
             </div>
           </div>
           {/* Botón configuración */}
@@ -709,19 +981,6 @@ export default function App() {
           </div>
         )}
 
-        {/* SECCIÓN A — Identificación */}
-        <SectionCard color="#2E7D32" bg="#F1F8E9" emoji="🪪" title="IDENTIFICACIÓN">
-          <Field label="Tu nombre" required>
-            <Select value={usuario} onChange={setUsuario} options={USUARIOS} placeholder="¿Quién registra?" />
-          </Field>
-          <Field label="Zona del parque" required>
-            <Select value={zona} onChange={setZona} options={ZONAS} />
-          </Field>
-          <Field label="Condición climática">
-            <Select value={clima} onChange={setClima} options={CLIMA} />
-          </Field>
-        </SectionCard>
-
         {/* SECCIÓN B — Tipo de registro */}
         <SectionCard color="#5D4037" bg="#EFEBE9" emoji="🔀" title="¿QUÉ VAS A REGISTRAR?">
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
@@ -744,7 +1003,6 @@ export default function App() {
         {tipoReg === "raton"          && <SeccionRaton          onDataChange={handleDataChange} />}
         {tipoReg === "murcielago"     && <SeccionMurcielago     onDataChange={handleDataChange} />}
         {tipoReg === "observacion"    && <SeccionObservacion    onDataChange={handleDataChange} />}
-        {tipoReg === "infraestructura"&& <SeccionInfra          onDataChange={handleDataChange} />}
         {tipoReg === "mision"         && <SeccionMision         onDataChange={handleDataChange} />}
         {tipoReg === "tarea"          && <SeccionTarea          onDataChange={handleDataChange} />}
 
@@ -776,7 +1034,7 @@ export default function App() {
                 Enviando a Kobo...
               </>
             ) : !isReady ? (
-              "Completa nombre y zona para continuar"
+              "Selecciona el tipo de registro para continuar"
             ) : isConnected ? (
               "✓ Guardar en Kobo"
             ) : (
@@ -791,6 +1049,8 @@ export default function App() {
         <SettingsModal
           config={koboConfig}
           pendingCount={pendingCount}
+          registrador={registrador}
+          onChangeRegistrador={nombre => setRegistrador(nombre)}
           onSave={cfg => { setKoboConfig(cfg); flushQueue(cfg); }}
           onClose={() => setShowSettings(false)}
         />
