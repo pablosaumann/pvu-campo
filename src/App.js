@@ -827,7 +827,7 @@ export default function App() {
   }
 
   async function handleSubmit() {
-    if (!usuario || !zona || !tipoReg) return;
+    if (!tipoReg) return;
 
     const payload = {
       _submission_time: iso,
