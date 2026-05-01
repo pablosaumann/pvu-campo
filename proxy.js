@@ -58,7 +58,7 @@ app.get('/api/ping', (req, res) => res.json({ ok: true, time: new Date().toISOSt
 
 // ── API: Tareas desde Kobo ────────────────────────────────────────────────────
 const KOBO_UID = 'aXVyjPZ9YmmzGHaK6uHMdb';
-const KOBO_API = `https://kf.kobotoolbox.org/api/v2/assets/${KOBO_UID}/submissions/?format=json&limit=500`;
+const KOBO_API = `https://kc.kobotoolbox.org/api/v1/data/${KOBO_UID}?format=json&limit=500`;
 
 app.get('/api/tareas', async (req, res) => {
   const token = req.headers.authorization;
