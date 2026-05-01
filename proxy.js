@@ -11,7 +11,6 @@ app.use(cors({
   allowedHeaders: ['Authorization', 'Content-Type'],
   methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
 }));
-app.options('*', cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
