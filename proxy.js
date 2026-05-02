@@ -169,7 +169,15 @@ app.get('/api/ping', function(req, res) {
   res.json({ ok: true, tasks: Object.keys(tasks).length });
 });
 
-app.get('/api/tareas', function(req, res) {
+app.get('/api/csv-debug', function(req, res) {
+  createExportAndFetch().then(function(csv) {
+    // Devolver las primeras 3 líneas del CSV
+    var lines = csv.split('\n').slice(0, 3).join('\n');
+    res.type('text/plain').send(lines);
+  }).catch(function(e) {
+    res.status(500).send(e.message);
+  });
+});
   var list = Object.values(tasks).map(function(t) {
     return Object.assign({}, t, { completada: completedIds.has(t.id) });
   });
