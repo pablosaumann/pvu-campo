@@ -41,7 +41,7 @@ function httpsRaw(url, headers, redirects) {
           if (!loc.startsWith('http')) loc = parsedUrl.origin + loc;
           return resolve(httpsRaw(loc, headers, redirects + 1));
         }
-        resolve({ status: res.statusCode, body: body });
+        resolve({ status: res.statusCode, body: body.slice(0, 300) });
       });
     });
     req.on('error', reject);
@@ -51,31 +51,29 @@ function httpsRaw(url, headers, redirects) {
 
 var KOBO_TOKEN = '629fb612ea05e21dd1d02d6cab992a5058293922';
 var KOBO_UID = 'aXVyjPZ9YmmzGHaK6uHMdb';
-var H_JSON = { Authorization: 'Token ' + KOBO_TOKEN, Accept: 'application/json' };
-var H_ANY  = { Authorization: 'Token ' + KOBO_TOKEN };
+var H = { Authorization: 'Token ' + KOBO_TOKEN, Accept: 'application/json' };
 
 app.get('/api/ping', function(req, res) { res.json({ ok: true }); });
 
 app.get('/api/debug', function(req, res) {
   var tests = [
-    { url: 'https://kf.kobotoolbox.org/api/v2/assets/' + KOBO_UID + '/submissions/', h: H_JSON },
-    { url: 'https://kf.kobotoolbox.org/api/v2/assets/' + KOBO_UID + '/submissions/?format=json', h: H_ANY },
-    { url: 'https://kc.kobotoolbox.org/api/v1/data/', h: H_JSON },
-    { url: 'https://kc.kobotoolbox.org/api/v1/data/?format=json', h: H_JSON },
+    'https://kf.kobotoolbox.org/api/v2/assets/' + KOBO_UID + '/submissions',
+    'https://kc.kobotoolbox.org/api/v1/forms/',
+    'https://kc.kobotoolbox.org/api/v1/forms/?id_string=parque_valle_ulmos',
+    'https://kc.kobotoolbox.org/pablosaumann/forms/parque_valle_ulmos.json',
+    'https://kc.kobotoolbox.org/pablosaumann/reports/' + KOBO_UID + '/export.csv',
   ];
   var results = {};
-  var promises = tests.map(function(t) {
-    return httpsRaw(t.url, t.h)
-      .then(function(r) {
-        results[t.url] = { status: r.status, body: r.body.slice(0, 400) };
-      })
-      .catch(function(e) { results[t.url] = { error: e.message }; });
+  var promises = tests.map(function(url) {
+    return httpsRaw(url, H)
+      .then(function(r) { results[url] = { status: r.status, body: r.body }; })
+      .catch(function(e) { results[url] = { error: e.message }; });
   });
   Promise.all(promises).then(function() { res.json(results); });
 });
 
 app.get('/api/tareas', function(req, res) {
-  res.status(503).json({ error: 'En mantenimiento — revisa /api/debug primero' });
+  res.status(503).json({ error: 'En debug' });
 });
 
 app.post('/api/tareas/:id/completar', function(req, res) {
