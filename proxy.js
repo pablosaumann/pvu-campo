@@ -176,12 +176,17 @@ app.get('/api/ping', function(req, res) {
 
 app.get('/api/csv-debug', function(req, res) {
   createExportAndFetch().then(function(csv) {
-    // Devolver las primeras 3 líneas del CSV
-    var lines = csv.split('\n').slice(0, 3).join('\n');
-    res.type('text/plain').send(lines);
-  }).catch(function(e) {
-    res.status(500).send(e.message);
-  });
+    var lines = csv.split('\n').filter(function(l) { return l.trim(); });
+    var headers = lines[0].split(';').map(function(h) { return h.replace(/^"|"$/g, '').trim(); });
+    var tipoIdx = headers.indexOf('b1_tipo');
+    var tipos = {};
+    lines.slice(1).forEach(function(line) {
+      var vals = line.split(';');
+      var tipo = (vals[tipoIdx] || '').replace(/^"|"$/g, '').trim();
+      tipos[tipo || '(vacío)'] = (tipos[tipo || '(vacío)'] || 0) + 1;
+    });
+    res.json({ total_filas: lines.length - 1, tipos_encontrados: tipos, primeras_2_filas: lines.slice(0, 3).join('\n') });
+  }).catch(function(e) { res.status(500).json({ error: e.message }); });
 });
 
 app.get('/api/tareas', function(req, res) {
