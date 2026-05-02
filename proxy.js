@@ -121,21 +121,26 @@ function createExportAndFetch() {
 function parseCSVtoTasks(csv) {
   var lines = csv.split('\n').filter(function(l) { return l.trim(); });
   if (lines.length < 2) return;
-  var headers = lines[0].split(',').map(function(h) { return h.replace(/^"|"$/g, '').trim(); });
-  var imported = 0;
-  lines.slice(1).forEach(function(line) {
+  // Separador es ; y valores entre comillas
+  function splitCSVLine(line) {
     var vals = [];
     var cur = ''; var inQ = false;
     for (var i = 0; i < line.length; i++) {
       var c = line[i];
       if (c === '"') { inQ = !inQ; }
-      else if (c === ',' && !inQ) { vals.push(cur.trim()); cur = ''; }
+      else if (c === ';' && !inQ) { vals.push(cur); cur = ''; }
       else { cur += c; }
     }
-    vals.push(cur.trim());
+    vals.push(cur);
+    return vals;
+  }
+  var headers = splitCSVLine(lines[0]).map(function(h) { return h.replace(/^"|"$/g, '').trim(); });
+  var imported = 0;
+  lines.slice(1).forEach(function(line) {
+    var vals = splitCSVLine(line);
     var obj = {};
     headers.forEach(function(h, i) { obj[h] = (vals[i] || '').replace(/^"|"$/g, ''); });
-    if (obj.tipo_registro === 'tarea') {
+    if (obj.b1_tipo === 'tarea') {
       var id = obj._id || obj._uuid || ('import-' + imported);
       if (!tasks[id]) {
         tasks[id] = {
@@ -145,7 +150,7 @@ function parseCSVtoTasks(csv) {
           dirigido: obj.g5_dirigido || '',
           urgencia: obj.g4_urgencia || '',
           recursos: obj.g6_recursos || '',
-          registrador: obj.registrador || '',
+          registrador: obj._submitted_by || obj.a1_nombre || '',
           fecha: obj.a2_fecha || (obj._submission_time || '').slice(0, 10),
           fecha_compromiso: obj.g1b_compromiso_fecha || '',
         };
@@ -217,7 +222,7 @@ app.use('/kobo', function(req, res, next) {
     var xmlMatch = body.match(/<\?xml[\s\S]*/);
     if (xmlMatch) {
       var fields = parseXML(xmlMatch[0]);
-      if (fields.tipo_registro === 'tarea') {
+      if (fields.b1_tipo === 'tarea') {
         var id = 'local-' + Date.now();
         tasks[id] = {
           id: id,
