@@ -13,7 +13,6 @@ app.use(function(req, res, next) {
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
-
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -29,28 +28,24 @@ function httpsGet(url, headers, redirects) {
   if (redirects > 5) return Promise.reject(new Error('Demasiados redirects'));
   return new Promise(function(resolve, reject) {
     var parsedUrl = new URL(url);
-    var options = {
+    var req = https.request({
       hostname: parsedUrl.hostname,
       path: parsedUrl.pathname + parsedUrl.search,
       method: 'GET',
       headers: headers,
-    };
-    var req = https.request(options, function(res) {
+    }, function(res) {
       var body = '';
-      res.on('data', function(chunk) { body += chunk; });
+      res.on('data', function(c) { body += c; });
       res.on('end', function() {
-        console.log(url + ' -> ' + res.statusCode);
+        console.log(parsedUrl.hostname + parsedUrl.pathname + ' -> ' + res.statusCode);
         if (res.statusCode === 301 || res.statusCode === 302 || res.statusCode === 307) {
           var loc = res.headers['location'];
-          if (!loc) return reject(new Error('Redirect sin location'));
           if (!loc.startsWith('http')) loc = parsedUrl.origin + loc;
           return resolve(httpsGet(loc, headers, redirects + 1));
         }
-        if (res.statusCode !== 200) {
-          return reject(new Error('HTTP ' + res.statusCode));
-        }
+        if (res.statusCode !== 200) return reject(new Error('HTTP ' + res.statusCode));
         try { resolve(JSON.parse(body)); }
-        catch(e) { reject(new Error('JSON invalido: ' + body.slice(0, 100))); }
+        catch(e) { reject(new Error('JSON invalido')); }
       });
     });
     req.on('error', reject);
@@ -60,52 +55,44 @@ function httpsGet(url, headers, redirects) {
 
 var KOBO_TOKEN = '629fb612ea05e21dd1d02d6cab992a5058293922';
 var KOBO_UID   = 'aXVyjPZ9YmmzGHaK6uHMdb';
-var KOBO_HEADERS = { Authorization: 'Token ' + KOBO_TOKEN, Accept: 'application/json' };
+var H = { Authorization: 'Token ' + KOBO_TOKEN, Accept: 'application/json' };
 
 app.get('/api/ping', function(req, res) {
-  res.json({ ok: true, time: new Date().toISOString() });
+  res.json({ ok: true });
 });
 
-// Debug completo del asset para encontrar URLs de submissions
+// Retorna el asset completo para ver campos deployment__
 app.get('/api/debug', function(req, res) {
-  var urls = [
-    'https://kf.kobotoolbox.org/api/v2/assets/' + KOBO_UID + '/?format=json',
-    'https://kf.kobotoolbox.org/api/v2/assets/' + KOBO_UID + '/submissions/?format=json&limit=1',
-    'https://kf.kobotoolbox.org/api/v2/assets/' + KOBO_UID + '/submissions?format=json&limit=1',
-  ];
-  var results = {};
-  var promises = urls.map(function(url) {
-    return httpsGet(url, KOBO_HEADERS)
-      .then(function(data) { results[url] = { ok: true, snippet: JSON.stringify(data).slice(0, 800) }; })
-      .catch(function(e) { results[url] = { ok: false, error: e.message }; });
-  });
-  Promise.all(promises).then(function() { res.json(results); });
+  httpsGet('https://kf.kobotoolbox.org/api/v2/assets/' + KOBO_UID + '/?format=json', H)
+    .then(function(data) {
+      // Extraer sólo campos deployment__ y links relevantes
+      var info = {};
+      Object.keys(data).forEach(function(k) {
+        if (k.indexOf('deployment') >= 0 || k === 'url' || k === 'asset_type' || k === 'has_deployment') {
+          info[k] = data[k];
+        }
+      });
+      res.json(info);
+    })
+    .catch(function(e) { res.status(500).json({ error: e.message }); });
 });
 
 app.get('/api/tareas', function(req, res) {
   var url = 'https://kf.kobotoolbox.org/api/v2/assets/' + KOBO_UID + '/submissions/?format=json&limit=500';
-  httpsGet(url, KOBO_HEADERS).then(function(data) {
-    var submissions = data.results || [];
-    console.log('Submissions: ' + submissions.length);
-    var tareas = submissions
-      .filter(function(s) { return s.tipo_registro === 'tarea'; })
+  httpsGet(url, H).then(function(data) {
+    var subs = data.results || [];
+    var tareas = subs.filter(function(s) { return s.tipo_registro === 'tarea'; })
       .map(function(s) {
         return {
-          id: String(s._id),
-          tipo: s.g1_tipo || '',
-          descripcion: s.g2_descripcion || '',
-          dirigido: s.g5_dirigido || '',
-          urgencia: s.g4_urgencia || '',
-          recursos: s.g6_recursos || '',
-          registrador: s.registrador || '',
-          fecha: s.a2_fecha || (s._submission_time || '').slice(0, 10),
-          fecha_compromiso: s.g1b_compromiso_fecha || '',
-          completada: completedIds.has(String(s._id)),
+          id: String(s._id), tipo: s.g1_tipo || '', descripcion: s.g2_descripcion || '',
+          dirigido: s.g5_dirigido || '', urgencia: s.g4_urgencia || '', recursos: s.g6_recursos || '',
+          registrador: s.registrador || '', fecha: s.a2_fecha || (s._submission_time||'').slice(0,10),
+          fecha_compromiso: s.g1b_compromiso_fecha || '', completada: completedIds.has(String(s._id)),
         };
       });
     res.json(tareas);
   }).catch(function(err) {
-    console.error('Error /api/tareas: ' + err.message);
+    console.error('Error: ' + err.message);
     res.status(500).json({ error: err.message });
   });
 });
@@ -118,9 +105,8 @@ app.delete('/api/tareas/:id/completar', function(req, res) {
 });
 
 app.use('/kobo', createProxyMiddleware({
-  target: 'https://kc.kobotoolbox.org',
-  changeOrigin: true,
+  target: 'https://kc.kobotoolbox.org', changeOrigin: true,
   pathRewrite: { '^/kobo': '' },
 }));
 
-app.listen(3001, function() { console.log('Proxy corriendo en puerto 3001'); });
+app.listen(3001, function() { console.log('Proxy en puerto 3001'); });
