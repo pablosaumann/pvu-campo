@@ -82,25 +82,21 @@ async function getKoboFormId() {
 }
 
 app.get('/api/debug', async (req, res) => {
-  try {
-    const urls = [
-      'https://kc.kobotoolbox.org/api/v1/data/?format=json',
-      'https://kf.kobotoolbox.org/api/v2/assets/?format=json&limit=10',
-      `https://kf.kobotoolbox.org/api/v2/assets/aXVyjPZ9YmmzGHaK6uHMdb/?format=json`,
-    ];
-    const results = {};
-    for (const url of urls) {
-      try {
-        const data = await httpsGet(url, { Authorization: `Token ${KOBO_TOKEN}` });
-        results[url] = { status: 'ok', data: JSON.stringify(data).slice(0, 500) };
-      } catch (e) {
-        results[url] = { status: 'error', msg: e.message };
-      }
+  const urls = [
+    'https://kc.kobotoolbox.org/api/v1/data/?format=json',
+    'https://kf.kobotoolbox.org/api/v2/assets/?format=json&limit=10',
+    'https://kf.kobotoolbox.org/api/v2/assets/aXVyjPZ9YmmzGHaK6uHMdb/?format=json',
+  ];
+  const results = {};
+  for (const url of urls) {
+    try {
+      const data = await httpsGet(url, { Authorization: `Token ${KOBO_TOKEN}` });
+      results[url] = { ok: true, snippet: JSON.stringify(data).slice(0, 500) };
+    } catch (e) {
+      results[url] = { ok: false, error: e.message };
     }
-    res.json(results);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
   }
+  res.json(results);
 });
   try {
     const formId = await getKoboFormId();
