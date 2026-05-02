@@ -61,6 +61,50 @@ app.get('/api/completadas', (req, res) => {
   res.json([...completedIds]);
 });
 
+// ── API: Tareas desde Kobo ────────────────────────────────────────────────────
+let koboFormId = null; // caché del ID numérico
+
+async function getKoboFormId(token) {
+  if (koboFormId) return koboFormId;
+  const data = await httpsGet('https://kc.kobotoolbox.org/api/v1/data/?format=json', { Authorization: token });
+  const forms = Array.isArray(data) ? data : (data.results || []);
+  console.log('Formularios disponibles:', forms.map(f => `${f.id}:${f.id_string}`).join(', '));
+  const form = forms.find(f => f.id_string === 'parque_valle_ulmos') || forms.find(f => (f.title||'').includes('Ulmos'));
+  if (!form) throw new Error(`Formulario no encontrado. Disponibles: ${forms.map(f=>f.id_string).join(', ')}`);
+  koboFormId = form.id;
+  console.log('Form ID encontrado:', koboFormId);
+  return koboFormId;
+}
+
+app.get('/api/tareas', async (req, res) => {
+  const token = req.headers.authorization;
+  if (!token) return res.status(401).json({ error: 'Token requerido' });
+  try {
+    const formId = await getKoboFormId(token);
+    const data = await httpsGet(`https://kc.kobotoolbox.org/api/v1/data/${formId}?format=json&limit=500`, { Authorization: token });
+    const submissions = Array.isArray(data) ? data : (data.results || []);
+    console.log(`Submissions: ${submissions.length}`);
+    const tareas = submissions
+      .filter(s => s.tipo_registro === 'tarea')
+      .map(s => ({
+        id: String(s._id),
+        tipo: s.g1_tipo || '',
+        descripcion: s.g2_descripcion || '',
+        dirigido: s.g5_dirigido || '',
+        urgencia: s.g4_urgencia || '',
+        recursos: s.g6_recursos || '',
+        registrador: s.registrador || '',
+        fecha: s.a2_fecha || (s._submission_time || '').slice(0, 10),
+        fecha_compromiso: s.g1b_compromiso_fecha || '',
+        completada: completedIds.has(String(s._id)),
+      }));
+    res.json(tareas);
+  } catch (err) {
+    console.error('Error /api/tareas:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/tareas/:id/completar', (req, res) => {
   completedIds.add(req.params.id);
   saveCompleted();
