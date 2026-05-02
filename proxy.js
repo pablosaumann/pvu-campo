@@ -6,7 +6,6 @@ const https = require('https');
 
 const app = express();
 
-// ── CORS ──────────────────────────────────────────────────────────────────────
 app.use(function(req, res, next) {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
@@ -18,20 +17,17 @@ app.use(function(req, res, next) {
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ── Estado completadas ────────────────────────────────────────────────────────
-const COMPLETED_FILE = path.join(__dirname, 'completed.json');
 var completedIds = new Set();
-try {
-  var saved = JSON.parse(fs.readFileSync(COMPLETED_FILE, 'utf8'));
-  completedIds = new Set(saved);
-} catch(e) {}
-
+const COMPLETED_FILE = path.join(__dirname, 'completed.json');
+try { completedIds = new Set(JSON.parse(fs.readFileSync(COMPLETED_FILE, 'utf8'))); } catch(e) {}
 function saveCompleted() {
   try { fs.writeFileSync(COMPLETED_FILE, JSON.stringify([...completedIds])); } catch(e) {}
 }
 
-// ── Helper HTTPS ──────────────────────────────────────────────────────────────
-function httpsGet(url, headers) {
+// Helper con seguimiento de redirects
+function httpsGet(url, headers, redirects) {
+  redirects = redirects || 0;
+  if (redirects > 5) return Promise.reject(new Error('Demasiados redirects'));
   return new Promise(function(resolve, reject) {
     var parsedUrl = new URL(url);
     var options = {
@@ -44,7 +40,14 @@ function httpsGet(url, headers) {
       var body = '';
       res.on('data', function(chunk) { body += chunk; });
       res.on('end', function() {
-        console.log(parsedUrl.hostname + parsedUrl.pathname + ' -> ' + res.statusCode);
+        console.log(url + ' -> ' + res.statusCode);
+        if (res.statusCode === 301 || res.statusCode === 302 || res.statusCode === 307 || res.statusCode === 308) {
+          var location = res.headers['location'];
+          if (!location) return reject(new Error('Redirect sin location'));
+          if (!location.startsWith('http')) location = parsedUrl.origin + location;
+          console.log('Redirect a: ' + location);
+          return resolve(httpsGet(location, headers, redirects + 1));
+        }
         if (res.statusCode !== 200) {
           return reject(new Error('HTTP ' + res.statusCode + ': ' + body.slice(0, 300)));
         }
@@ -57,15 +60,10 @@ function httpsGet(url, headers) {
   });
 }
 
-// ── Kobo config ───────────────────────────────────────────────────────────────
 var KOBO_TOKEN = '629fb612ea05e21dd1d02d6cab992a5058293922';
 var KOBO_UID   = 'aXVyjPZ9YmmzGHaK6uHMdb';
-var KOBO_HEADERS = {
-  Authorization: 'Token ' + KOBO_TOKEN,
-  Accept: 'application/json',
-};
+var KOBO_HEADERS = { Authorization: 'Token ' + KOBO_TOKEN, Accept: 'application/json' };
 
-// ── Endpoints ─────────────────────────────────────────────────────────────────
 app.get('/api/ping', function(req, res) {
   res.json({ ok: true, time: new Date().toISOString() });
 });
@@ -99,18 +97,12 @@ app.get('/api/tareas', function(req, res) {
 });
 
 app.post('/api/tareas/:id/completar', function(req, res) {
-  completedIds.add(req.params.id);
-  saveCompleted();
-  res.json({ ok: true });
+  completedIds.add(req.params.id); saveCompleted(); res.json({ ok: true });
 });
-
 app.delete('/api/tareas/:id/completar', function(req, res) {
-  completedIds.delete(req.params.id);
-  saveCompleted();
-  res.json({ ok: true });
+  completedIds.delete(req.params.id); saveCompleted(); res.json({ ok: true });
 });
 
-// ── Proxy envío a Kobo ────────────────────────────────────────────────────────
 app.use('/kobo', createProxyMiddleware({
   target: 'https://kc.kobotoolbox.org',
   changeOrigin: true,
