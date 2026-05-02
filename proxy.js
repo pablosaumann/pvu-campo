@@ -66,32 +66,25 @@ function httpsGet(url, headers) {
 // ── API: Test ─────────────────────────────────────────────────────────────────
 app.get('/api/ping', (req, res) => res.json({ ok: true, time: new Date().toISOString() }));
 
-// ── API: Estado completadas ───────────────────────────────────────────────────
-app.get('/api/completadas', (req, res) => {
-  res.json([...completedIds]);
-});
-
 // ── API: Tareas desde Kobo ────────────────────────────────────────────────────
-let koboFormId = null; // caché del ID numérico
+const KOBO_TOKEN = '629fb612ea05e21dd1d02d6cab992a5058293922';
+let koboFormId = null;
 
-async function getKoboFormId(token) {
+async function getKoboFormId() {
   if (koboFormId) return koboFormId;
-  const data = await httpsGet('https://kc.kobotoolbox.org/api/v1/data/?format=json', { Authorization: token });
+  const data = await httpsGet('https://kc.kobotoolbox.org/api/v1/data/?format=json', { Authorization: `Token ${KOBO_TOKEN}` });
   const forms = Array.isArray(data) ? data : (data.results || []);
-  console.log('Formularios disponibles:', forms.map(f => `${f.id}:${f.id_string}`).join(', '));
-  const form = forms.find(f => f.id_string === 'parque_valle_ulmos') || forms.find(f => (f.title||'').includes('Ulmos'));
-  if (!form) throw new Error(`Formulario no encontrado. Disponibles: ${forms.map(f=>f.id_string).join(', ')}`);
+  console.log('Formularios:', forms.map(f => `${f.id}:${f.id_string}`).join(', '));
+  const form = forms.find(f => f.id_string === 'parque_valle_ulmos') || forms.find(f => (f.title||'').toLowerCase().includes('ulmos'));
+  if (!form) throw new Error(`No encontrado. Disponibles: ${forms.map(f=>f.id_string).join(', ')}`);
   koboFormId = form.id;
-  console.log('Form ID encontrado:', koboFormId);
   return koboFormId;
 }
 
 app.get('/api/tareas', async (req, res) => {
-  const token = req.headers.authorization;
-  if (!token) return res.status(401).json({ error: 'Token requerido' });
   try {
-    const formId = await getKoboFormId(token);
-    const data = await httpsGet(`https://kc.kobotoolbox.org/api/v1/data/${formId}?format=json&limit=500`, { Authorization: token });
+    const formId = await getKoboFormId();
+    const data = await httpsGet(`https://kc.kobotoolbox.org/api/v1/data/${formId}?format=json&limit=500`, { Authorization: `Token ${KOBO_TOKEN}` });
     const submissions = Array.isArray(data) ? data : (data.results || []);
     console.log(`Submissions: ${submissions.length}`);
     const tareas = submissions

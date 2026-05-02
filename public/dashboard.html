@@ -195,66 +195,21 @@ const PROXY = 'https://pvu-proxy.onrender.com';
 let allTareas = [];
 let currentFilter = 'todos';
 
-// ── Token ────────────────────────────────────────────────────────────────────
-function getToken() { return localStorage.getItem('pvu_dashboard_token') || ''; }
-function checkToken() {
-  document.getElementById('setupBtn').disabled = document.getElementById('tokenInput').value.trim().length < 20;
-}
-function saveToken() {
-  const t = document.getElementById('tokenInput').value.trim();
-  if (t) { localStorage.setItem('pvu_dashboard_token', t); init(); }
-}
-
 // ── Init ─────────────────────────────────────────────────────────────────────
 function init() {
-  const token = getToken();
-  if (!token) {
-    document.getElementById('setupOverlay').style.display = 'flex';
-    document.getElementById('tasks').innerHTML = '';
-  } else {
-    document.getElementById('setupOverlay').style.display = 'none';
-    document.getElementById('filters').style.display = 'flex';
-    document.getElementById('stats').style.display = 'flex';
-    loadTareas();
-  }
+  document.getElementById('setupOverlay').style.display = 'none';
+  document.getElementById('filters').style.display = 'flex';
+  document.getElementById('stats').style.display = 'flex';
+  loadTareas();
 }
 
 // ── Load tareas ───────────────────────────────────────────────────────────────
 async function loadTareas() {
   document.getElementById('tasks').innerHTML = '<div class="loading"><div class="spinner"></div><p style="color:#9E9E9E;font-size:13px">Cargando tareas...</p></div>';
-  const KOBO_UID = 'aXVyjPZ9YmmzGHaK6uHMdb';
-  const url = `https://kf.kobotoolbox.org/api/v2/assets/${KOBO_UID}/submissions/?format=json&limit=500`;
   try {
-    const res = await fetch(url, {
-      headers: { Authorization: `Token ${getToken()}` }
-    });
-    if (!res.ok) throw new Error(`Kobo respondió ${res.status}`);
-    const data = await res.json();
-    const submissions = data.results || [];
-
-    // Obtener completadas desde proxy
-    let completadas = new Set();
-    try {
-      const cr = await fetch(`${PROXY}/api/completadas`);
-      const cd = await cr.json();
-      completadas = new Set(cd.map(String));
-    } catch {}
-
-    allTareas = submissions
-      .filter(s => s.tipo_registro === 'tarea')
-      .map(s => ({
-        id: String(s._id),
-        tipo: s.g1_tipo || '',
-        descripcion: s.g2_descripcion || '',
-        dirigido: s.g5_dirigido || '',
-        urgencia: s.g4_urgencia || '',
-        recursos: s.g6_recursos || '',
-        registrador: s.registrador || '',
-        fecha: s.a2_fecha || (s._submission_time || '').slice(0, 10),
-        fecha_compromiso: s.g1b_compromiso_fecha || '',
-        completada: completadas.has(String(s._id)),
-      }));
-
+    const res = await fetch(`${PROXY}/api/tareas`);
+    if (!res.ok) throw new Error(`Error ${res.status}`);
+    allTareas = await res.json();
     allTareas.sort((a, b) => {
       if (a.completada !== b.completada) return a.completada ? 1 : -1;
       return (b.fecha || '').localeCompare(a.fecha || '');
