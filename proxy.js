@@ -178,6 +178,8 @@ app.get('/api/csv-debug', function(req, res) {
     res.status(500).send(e.message);
   });
 });
+
+app.get('/api/tareas', function(req, res) {
   var list = Object.values(tasks).map(function(t) {
     return Object.assign({}, t, { completada: completedIds.has(t.id) });
   });
