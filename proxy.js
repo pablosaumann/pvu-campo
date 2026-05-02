@@ -88,7 +88,7 @@ function createExportAndFetch() {
   return koboPost(exportPath, {
     source: 'https://' + KF + '/api/v2/assets/' + KOBO_UID + '/',
     type: 'csv',
-    lang: 'xml',
+    lang: '_xml',
     hierarchy_in_labels: false,
     group_sep: '/',
     flatten: true,
