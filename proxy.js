@@ -92,6 +92,8 @@ function createExportAndFetch() {
     hierarchy_in_labels: false,
     group_sep: '/',
     flatten: true,
+    fields_from_all_versions: true,
+    multiple_select: 'both',
   }).then(function(export_obj) {
     console.log('Export creado:', export_obj.uid, 'status:', export_obj.status);
     var exportUid = export_obj.uid;
