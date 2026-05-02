@@ -56,38 +56,9 @@ function httpsGet(url, headers) {
 // ── API: Test ─────────────────────────────────────────────────────────────────
 app.get('/api/ping', (req, res) => res.json({ ok: true, time: new Date().toISOString() }));
 
-// ── API: Tareas desde Kobo ────────────────────────────────────────────────────
-const KOBO_UID = 'aXVyjPZ9YmmzGHaK6uHMdb';
-const KOBO_API = `https://kc.kobotoolbox.org/api/v1/data/${KOBO_UID}?format=json&limit=500`;
-
-app.get('/api/tareas', async (req, res) => {
-  const token = req.headers.authorization;
-  console.log('GET /api/tareas — token presente:', !!token);
-  if (!token) return res.status(401).json({ error: 'Token requerido' });
-  try {
-    const data = await httpsGet(KOBO_API, { Authorization: token });
-    const submissions = data.results || [];
-    console.log(`Submissions totales: ${submissions.length}`);
-    const tareas = submissions
-      .filter(s => s.tipo_registro === 'tarea')
-      .map(s => ({
-        id: String(s._id),
-        tipo: s.g1_tipo || '',
-        descripcion: s.g2_descripcion || '',
-        dirigido: s.g5_dirigido || '',
-        urgencia: s.g4_urgencia || '',
-        recursos: s.g6_recursos || '',
-        registrador: s.registrador || '',
-        fecha: s.a2_fecha || (s._submission_time || '').slice(0, 10),
-        fecha_compromiso: s.g1b_compromiso_fecha || '',
-        completada: completedIds.has(String(s._id)),
-      }));
-    console.log(`Tareas filtradas: ${tareas.length}`);
-    res.json(tareas);
-  } catch (err) {
-    console.error('Error /api/tareas:', err.message);
-    res.status(500).json({ error: err.message });
-  }
+// ── API: Estado completadas ───────────────────────────────────────────────────
+app.get('/api/completadas', (req, res) => {
+  res.json([...completedIds]);
 });
 
 app.post('/api/tareas/:id/completar', (req, res) => {

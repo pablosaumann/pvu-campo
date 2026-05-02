@@ -222,13 +222,39 @@ function init() {
 // ── Load tareas ───────────────────────────────────────────────────────────────
 async function loadTareas() {
   document.getElementById('tasks').innerHTML = '<div class="loading"><div class="spinner"></div><p style="color:#9E9E9E;font-size:13px">Cargando tareas...</p></div>';
+  const KOBO_UID = 'aXVyjPZ9YmmzGHaK6uHMdb';
+  const url = `https://kf.kobotoolbox.org/api/v2/assets/${KOBO_UID}/submissions/?format=json&limit=500`;
   try {
-    const res = await fetch(`${PROXY}/api/tareas`, {
+    const res = await fetch(url, {
       headers: { Authorization: `Token ${getToken()}` }
     });
-    if (!res.ok) throw new Error(`Error ${res.status}`);
-    allTareas = await res.json();
-    // Ordenar: pendientes primero, luego por fecha desc
+    if (!res.ok) throw new Error(`Kobo respondió ${res.status}`);
+    const data = await res.json();
+    const submissions = data.results || [];
+
+    // Obtener completadas desde proxy
+    let completadas = new Set();
+    try {
+      const cr = await fetch(`${PROXY}/api/completadas`);
+      const cd = await cr.json();
+      completadas = new Set(cd.map(String));
+    } catch {}
+
+    allTareas = submissions
+      .filter(s => s.tipo_registro === 'tarea')
+      .map(s => ({
+        id: String(s._id),
+        tipo: s.g1_tipo || '',
+        descripcion: s.g2_descripcion || '',
+        dirigido: s.g5_dirigido || '',
+        urgencia: s.g4_urgencia || '',
+        recursos: s.g6_recursos || '',
+        registrador: s.registrador || '',
+        fecha: s.a2_fecha || (s._submission_time || '').slice(0, 10),
+        fecha_compromiso: s.g1b_compromiso_fecha || '',
+        completada: completadas.has(String(s._id)),
+      }));
+
     allTareas.sort((a, b) => {
       if (a.completada !== b.completada) return a.completada ? 1 : -1;
       return (b.fecha || '').localeCompare(a.fecha || '');
