@@ -12,8 +12,8 @@ const TIPOS_REGISTRO = [
   { id: "raton",       emoji: "🐀", label: "Reporte Ratón",        color: "#5D4037", bg: "#EFEBE9" },
   { id: "murcielago",  emoji: "🦇", label: "Reporte Murciélago",   color: "#4A148C", bg: "#EDE7F6" },
   { id: "observacion", emoji: "🌿", label: "Observación de Campo",  color: "#2E7D32", bg: "#E8F5E9" },
-  { id: "mision",      emoji: "🪓", label: "Misión de Trabajo",     color: "#1565C0", bg: "#E3F2FD" },
-  { id: "tarea",       emoji: "💡", label: "Tarea / Compromiso",    color: "#B71C1C", bg: "#FFEBEE" },
+  { id: "mision",      emoji: "🧤", label: "Misión de Trabajo",     color: "#1565C0", bg: "#E3F2FD" },
+  ,
 ];
 const TIPOS_TRAMPA = ["Plástica marca 1", "Plástica marca 2", "Metal tradicional", "Bluetooth/automática", "Trampa de pegamento"];
 const TIPOS_MISION = ["Control de Exóticos", "Mantención de sendero", "Mantención infraestructura", "Monitoreo", "Otra (especificar)"];
@@ -1004,7 +1004,6 @@ export default function App() {
         {tipoReg === "murcielago"     && <SeccionMurcielago     onDataChange={handleDataChange} />}
         {tipoReg === "observacion"    && <SeccionObservacion    onDataChange={handleDataChange} />}
         {tipoReg === "mision"         && <SeccionMision         onDataChange={handleDataChange} />}
-        {tipoReg === "tarea"          && <SeccionTarea          onDataChange={handleDataChange} />}
 
         {/* BOTÓN ENVIAR */}
         {tipoReg && (
